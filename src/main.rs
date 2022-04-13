@@ -30,7 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
         }
     "#;
 
-    let tokens = proto::token::tokenize(input.to_string())?;
+    let tokens = proto::token::tokenize(input)?;
     println!("{:?}", tokens);
 
     Ok(())
