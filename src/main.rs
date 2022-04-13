@@ -6,6 +6,38 @@ use proto::parser::*;
 
 fn main() -> Result<(), anyhow::Error> {
     let input = r#"
+        syntax = "proto3";
+
+        message MyRequest {
+            required string name = 1;
+            string age = 2;
+        }
+
+        message MyResponse {
+            required string name = 1;
+            string age = 2;
+        }
+
+        syntax = "proto2";
+
+        message Testing {
+            required string name = 1;
+            string age = 2;
+        }
+
+        service MyService {
+            rpc MyRpc(SomeType) returns (stream OtherType);
+        }
+    "#;
+
+    let tokens = proto::token::tokenize(input.to_string())?;
+    println!("{:?}", tokens);
+
+    Ok(())
+}
+
+fn main2() -> Result<(), anyhow::Error> {
+    let input = r#"
     
         syntax = "proto3";
 
