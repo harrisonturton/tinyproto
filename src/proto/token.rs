@@ -72,12 +72,6 @@ pub fn tokenize(input: String) -> Result<Vec<Token>, anyhow::Error> {
             remaining = rest.to_string();
             continue;
         }
-        
-        if let Ok((rest, ident)) = ident(&remaining) {
-            tokens.push(Token::Ident(ident.to_string()));
-            remaining = rest.to_string();
-            continue;
-        }
 
         // "="
         if let Ok((rest, _)) = equals(&remaining) {
@@ -131,6 +125,12 @@ pub fn tokenize(input: String) -> Result<Vec<Token>, anyhow::Error> {
         // ";"
         if let Ok((rest, _)) = semicolon(&remaining) {
             tokens.push(Token::Semicolon);
+            remaining = rest.to_string();
+            continue;
+        }
+        
+        if let Ok((rest, ident)) = ident(&remaining) {
+            tokens.push(Token::Ident(ident.to_string()));
             remaining = rest.to_string();
             continue;
         }
