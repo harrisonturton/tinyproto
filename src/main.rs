@@ -1,3 +1,4 @@
+use handlebars::Handlebars;
 use clap::Parser;
 
 mod proto;
@@ -10,22 +11,39 @@ struct Args {
     #[clap(short, long)]
     proto: String,
     #[clap(short, long)]
-    template: String
+    template: Option<String>
 }
 
 fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
-    let input = std::fs::read_to_string(args.proto)?;
-    let file_descriptor = parse(&input)?;
+    let proto_src = std::fs::read_to_string(&args.proto)?;
+    let file_descriptor = parse(&args.proto, &proto_src)?;
 
-    let json = serde_json::to_string_pretty(&file_descriptor)?;
+    match args.template {
+        Some(template) => render_proto_to_template(&file_descriptor, &template),
+        None => render_proto_to_json(&file_descriptor),
+    }
+}
+
+fn render_proto_to_json(file_descriptor: &FileDescriptor) -> Result<(), anyhow::Error> {
+    let json = serde_json::to_string_pretty(file_descriptor)?;
     println!("{}", json);
+    Ok(())
+}
+
+fn render_proto_to_template(file_descriptor: &FileDescriptor, template: &str) -> Result<(), anyhow::Error> {
+    let template_src = std::fs::read_to_string(template)?;
+    let mut handlebars = Handlebars::new();
+    handlebars.register_template_string("template", template_src)?;
+
+    let output = handlebars.render("template", &file_descriptor)?;
+    println!("{}", output);
 
     Ok(())
 }
 
-fn parse(input: &str) -> Result<FileDescriptor, anyhow::Error> {
+fn parse<'a>(file_name: &'a str, input: &'a str) -> Result<FileDescriptor<'a>, anyhow::Error> {
     let mut file_syntax: Option<SyntaxDescriptor> = None;
     let mut messages: Vec<MessageDescriptor> = vec![];
     let mut services: Vec<ServiceDescriptor> = vec![];
@@ -61,7 +79,7 @@ fn parse(input: &str) -> Result<FileDescriptor, anyhow::Error> {
     }
 
     let descriptor = FileDescriptor{
-        name: "File name",
+        name: file_name,
         syntax: file_syntax,
         messages: messages,
         services: services,
