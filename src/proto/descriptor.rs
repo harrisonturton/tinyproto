@@ -1,59 +1,62 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct FileDescriptor {
-    pub name: String,
-    pub syntax: Option<SyntaxDescriptor>,
-    pub messages: Vec<MessageDescriptor>,
-    pub services: Vec<ServiceDescriptor>,
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct FileDescriptor<'a> {
+    pub name: &'a str,
+    pub syntax: Option<SyntaxDescriptor<'a>>,
+    pub messages: Vec<MessageDescriptor<'a>>,
+    pub services: Vec<ServiceDescriptor<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum SyntaxDescriptor {
+pub enum SyntaxDescriptor<'a> {
+    #[serde(rename(serialize = "proto2"))]
     Proto2,
+    #[serde(rename(serialize = "proto3"))]
     Proto3,
-    Unknown(String),
+    Unknown(&'a str),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+pub struct MessageDescriptor<'a> {
+    pub name: &'a str,
+    pub fields: Vec<FieldDescriptor<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct MessageDescriptor {
-    pub name: String,
-    pub fields: Vec<FieldDescriptor>,
+pub struct FieldDescriptor<'a> {
+    pub label: Option<FieldDescriptorLabel<'a>>,
+    #[serde(rename(serialize = "type"))]
+    pub typ: FieldDescriptorType<'a>,
+    pub name: &'a str,
+    pub number: &'a str,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct FieldDescriptor {
-    pub label: Option<FieldDescriptorLabel>,
-    pub typ: FieldDescriptorType,
-    pub name: String,
-    pub number: u32,
-}
-
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum FieldDescriptorLabel {
+pub enum FieldDescriptorLabel<'a> {
     Optional,
     Required,
     Repeated,
-    Unknown(String),
+    Unknown(&'a str),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub enum FieldDescriptorType {
+pub enum FieldDescriptorType<'a> {
     String,
-    Message(String),
+    Message(&'a str),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct ServiceDescriptor {
-    pub name: String,
-    pub methods: Vec<MethodDescriptor>,
+pub struct ServiceDescriptor<'a> {
+    pub name: &'a str,
+    pub methods: Vec<MethodDescriptor<'a>>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct MethodDescriptor {
-    pub name: String,
-    pub input_type: String,
-    pub output_type: String,
+pub struct MethodDescriptor<'a> {
+    pub name: &'a str,
+    pub input_type: &'a str,
+    pub output_type: &'a str,
     pub client_streaming: bool,
     pub server_streaming: bool,
 }
