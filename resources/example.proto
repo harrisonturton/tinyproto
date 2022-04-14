@@ -1,0 +1,21 @@
+syntax = "proto2";
+
+message GetUserRequest {
+    optional string by_id = 1;
+    optional string by_email = 2;
+}
+
+message GetUserResponse {
+    required User user = 1;
+}
+
+message User {
+    required string id = 1;
+    required string email = 2;
+    required string username = 3;
+}
+
+service UserService {
+    rpc getUser(GetUserRequest) returns (GetUserResponse);
+    rpc streamUsers(stream GetUserRequest) returns (stream GetUserResponse);
+}
