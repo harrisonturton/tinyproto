@@ -1,3 +1,7 @@
+use nom::character::complete::alphanumeric1;
+use nom::multi::many0_count;
+use nom::character::complete::alpha1;
+use nom::combinator::recognize;
 use nom::combinator::opt;
 use nom::sequence::tuple;
 use nom::error::ParseError;
@@ -50,7 +54,7 @@ pub fn message(input: &str) -> IResult<&str, MessageDescriptor> {
     let mut parser = tuple((
         preceded(
             ws(tag("message")),
-            take_while(char::is_alphanumeric),
+            identifier,
         ),
         delimited(
             ws(tag("{")),
@@ -70,7 +74,7 @@ pub fn message_field(input: &str) -> IResult<&str, FieldDescriptor> {
     let mut parser = tuple((
         opt(message_field_label),
         message_field_type,
-        ws(take_while(char::is_alphanumeric)),
+        ws(identifier),
         delimited(
             ws(tag("=")),
             take_while(char::is_alphanumeric),
@@ -104,7 +108,7 @@ pub fn message_field_label(input: &str) -> IResult<&str, FieldDescriptorLabel> {
 }
 
 pub fn message_field_type(input: &str) -> IResult<&str, FieldDescriptorType> {
-    let parser = ws(take_while(char::is_alphanumeric));
+    let parser = ws(identifier);
     let (rest, typ) = parser(input)?;
     let descriptor = match typ {
         "string" => FieldDescriptorType::String,
@@ -117,7 +121,7 @@ pub fn service(input: &str) -> IResult<&str, ServiceDescriptor> {
     let mut parser = tuple((
         preceded(
             ws(tag("service")),
-            take_while(char::is_alphanumeric),
+            identifier,
         ),
         delimited(
             ws(tag("{")),
@@ -137,7 +141,7 @@ pub fn service_method(input: &str) -> IResult<&str, MethodDescriptor> {
     let mut parser = tuple((
         preceded(
             ws(tag("rpc")),
-            ws(take_while(char::is_alphanumeric)),
+            ws(identifier),
         ),
         service_method_type,
         terminated(
@@ -166,12 +170,21 @@ pub fn service_method_type(input: &str) -> IResult<&str, (bool, &str)> {
         ws(tag("(")),
         tuple((
             opt(ws(tag("stream"))),
-            ws(take_while(char::is_alphanumeric)),
+            ws(identifier),
         )),
         ws(tag(")")),
     );
     let (rest, (streaming, ident)) = parser(input)?;
     Ok((rest, (streaming.is_some(), ident)))
+}
+
+pub fn identifier(input: &str) -> IResult<&str, &str> {
+    recognize(
+        pair(
+        alt((alpha1, tag("_"))),
+        many0_count(alt((alphanumeric1, tag("_"))))
+        )
+    )(input)
 }
 
 pub fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(inner: F) -> impl Fn(&'a str) -> IResult<&'a str, O, E>
@@ -185,4 +198,50 @@ pub fn ws<'a, F: 'a, O, E: ParseError<&'a str>>(inner: F) -> impl Fn(&'a str) ->
       multispace0
     )(i)
   }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_parse_message_with_underscores_in_field_name() -> Result<(), anyhow::Error> {
+        let input = r#"
+            message GetUserRequest {
+                required string by_id = 1;
+            }
+        "#;
+        let expected_descriptor = MessageDescriptor {
+            name: "GetUserRequest",
+            fields: vec![
+                FieldDescriptor {
+                    name: "by_id",
+                    label: Some(FieldDescriptorLabel::Required),
+                    typ: FieldDescriptorType::String,
+                    number: "1",
+                }
+            ],
+        };
+        let expected = ("", expected_descriptor);
+        let actual = message(input)?;
+        assert_eq!(expected, actual);
+        Ok(())
+    }
+
+    #[test]
+    fn can_parse_message_field_with_underscores_name() -> Result<(), anyhow::Error> {
+        let input = r#"
+            required string by_id = 1;
+        "#;
+        let expected_descriptor = FieldDescriptor {
+            name: "by_id",
+            label: Some(FieldDescriptorLabel::Required),
+            typ: FieldDescriptorType::String,
+            number: "1",
+        };
+        let expected = ("", expected_descriptor);
+        let actual = message_field(input)?;
+        assert_eq!(expected, actual);
+        Ok(())
+    }
 }

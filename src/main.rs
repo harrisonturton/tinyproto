@@ -1,34 +1,31 @@
+use clap::Parser;
+
 mod proto;
 use proto::descriptor::*;
 use proto::parser::*;
 
+#[derive(clap::Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(short, long)]
+    proto: String,
+    #[clap(short, long)]
+    template: String
+}
+
 fn main() -> Result<(), anyhow::Error> {
-    let input = r#"
-    
-        syntax = "proto3";
+    let args = Args::parse();
 
-        message MyRequest {
-            required string name = 1;
-            string age = 2;
-        }
+    let input = std::fs::read_to_string(args.proto)?;
+    let file_descriptor = parse(&input)?;
 
-        message MyResponse {
-            required string name = 1;
-            string age = 2;
-        }
+    let json = serde_json::to_string_pretty(&file_descriptor)?;
+    println!("{}", json);
 
-        syntax = "proto2";
+    Ok(())
+}
 
-        message Testing {
-            required string name = 1;
-            string age = 2;
-        }
-
-        service MyService {
-            rpc MyRpc(SomeType) returns (stream OtherType);
-        }
-    "#;
-
+fn parse(input: &str) -> Result<FileDescriptor, anyhow::Error> {
     let mut file_syntax: Option<SyntaxDescriptor> = None;
     let mut messages: Vec<MessageDescriptor> = vec![];
     let mut services: Vec<ServiceDescriptor> = vec![];
@@ -63,15 +60,11 @@ fn main() -> Result<(), anyhow::Error> {
         return Err(anyhow::anyhow!("Unexpected characters {}", remaining));
     }
 
-    let file = FileDescriptor{
+    let descriptor = FileDescriptor{
         name: "File name",
         syntax: file_syntax,
         messages: messages,
         services: services,
     };
-
-    let json = serde_json::to_string(&file)?;
-    println!("{}", json);
-
-    Ok(())
+    Ok(descriptor)
 }
