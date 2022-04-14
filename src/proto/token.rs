@@ -31,114 +31,126 @@ pub enum Literal {
     String(String),
 }
 
-pub fn tokenize(input: &str) -> Result<Vec<Token>, anyhow::Error> {
-    let mut tokens = vec![];
+pub struct Tokenizer<'a> {
+    input: &'a str
+}
 
-    let mut remaining = input;
-    while !remaining.is_empty() {
+impl<'a> Tokenizer<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self { input }
+    }
+}
+
+impl<'a> IntoIterator for Tokenizer<'a> {
+    type Item = Token;
+    type IntoIter = TokenizerIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        TokenizerIterator {
+            input: self.input
+        }
+    }
+}
+
+pub struct TokenizerIterator<'a> {
+    input: &'a str
+}
+
+impl<'a> Iterator for TokenizerIterator<'a> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.input.is_empty() {
+            return None;
+        }
+
         // "{"
-        if let Ok((rest, _)) = open_brace(&remaining) {
-            tokens.push(Token::OpenBrace);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = open_brace(&self.input) {
+            self.input = rest;
+            return Some(Token::OpenBrace);
         }
 
         // "}"
-        if let Ok((rest, _)) = close_brace(&remaining) {
-            tokens.push(Token::CloseBrace);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = close_brace(&self.input) {
+            self.input = rest;
+            return Some(Token::CloseBrace);
         }
 
         // "("
-        if let Ok((rest, _)) = open_parens(&remaining) {
-            tokens.push(Token::OpenParens);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = open_parens(&self.input) {
+            self.input = rest;
+            return Some(Token::OpenParens);
         }
 
         // ")"
-        if let Ok((rest, _)) = close_parens(&remaining) {
-            tokens.push(Token::CloseParens);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = close_parens(&self.input) {
+            self.input = rest;
+            return Some(Token::CloseParens);
         }
 
         // "="
-        if let Ok((rest, _)) = equals(&remaining) {
-            tokens.push(Token::Equals);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = equals(&self.input) {
+            self.input = rest;
+            return Some(Token::Equals);
         }
 
         // "syntax"
-        if let Ok((rest, _)) = syntax(&remaining) {
-            tokens.push(Token::Syntax);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = syntax(&self.input) {
+            self.input = rest;
+            return Some(Token::Syntax);
         }
 
         // "message"
-        if let Ok((rest, _)) = message(&remaining) {
-            tokens.push(Token::Message);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = message(&self.input) {
+            self.input = rest;
+            return Some(Token::Message);
         }
 
         // "service"
-        if let Ok((rest, _)) = service(&remaining) {
-            tokens.push(Token::Service);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = service(&self.input) {
+            self.input = rest;
+            return Some(Token::Service);
         }
 
         // "rpc"
-        if let Ok((rest, _)) = rpc(&remaining) {
-            tokens.push(Token::Rpc);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = rpc(&self.input) {
+            self.input = rest;
+            return Some(Token::Rpc);
         }
 
         // "returns"
-        if let Ok((rest, _)) = returns(&remaining) {
-            tokens.push(Token::Returns);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = returns(&self.input) {
+            self.input = rest;
+            return Some(Token::Returns);
         }
 
         // "stream"
-        if let Ok((rest, _)) = stream(&remaining) {
-            tokens.push(Token::Stream);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = stream(&self.input) {
+            self.input = rest;
+            return Some(Token::Stream);
         }
 
         // ";"
-        if let Ok((rest, _)) = semicolon(&remaining) {
-            tokens.push(Token::Semicolon);
-            remaining = rest;
-            continue;
+        if let Ok((rest, _)) = semicolon(&self.input) {
+            self.input = rest;
+            return Some(Token::Semicolon);
         }
 
         // Double-quote string literal
-        if let Ok((rest, literal)) = string_literal(&remaining) {
+        if let Ok((rest, literal)) = string_literal(&self.input) {
+            self.input = rest;
             let literal = Literal::String(literal.to_string());
-            tokens.push(Token::Literal(literal));
-            remaining = rest;
-            continue;
+            return Some(Token::Literal(literal));
         }
        
         // Non-keyword identifier
-        if let Ok((rest, ident)) = ident(&remaining) {
-            tokens.push(Token::Ident(ident.to_string()));
-            remaining = rest;
-            continue;
+        if let Ok((rest, ident)) = ident(&self.input) {
+            self.input = rest;
+            return Some(Token::Ident(ident.to_string()));
         }
 
-        return Err(anyhow::anyhow!("Unexpected character: {}", remaining));
+        return None;
     }
-
-    Ok(tokens)
 }
 
 fn ident(input: &str) -> IResult<&str, &str> {

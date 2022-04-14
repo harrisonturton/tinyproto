@@ -30,13 +30,18 @@ fn main() -> Result<(), anyhow::Error> {
         }
     "#;
 
-    let tokens = proto::token::tokenize(input)?;
-    println!("{:?}", tokens);
+    let tokenizer = proto::token::Tokenizer::new(input);
+    for token in tokenizer.into_iter() {
+        println!("{:?}", token);
+    }
+
+    // let tokens = proto::token::tokenize(input)?;
+    // println!("{:?}", tokens);
 
     Ok(())
 }
 
-fn main2() -> Result<(), anyhow::Error> {
+fn _main2() -> Result<(), anyhow::Error> {
     let input = r#"
     
         syntax = "proto3";
