@@ -32,7 +32,7 @@ pub struct FieldDescriptor<'a> {
     pub number: &'a str,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub enum FieldDescriptorLabel<'a> {
     Optional,
     Required,
@@ -40,10 +40,38 @@ pub enum FieldDescriptorLabel<'a> {
     Unknown(&'a str),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+impl<'a> Serialize for FieldDescriptorLabel<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            FieldDescriptorLabel::Optional => serializer.serialize_str("optional"),
+            FieldDescriptorLabel::Required => serializer.serialize_str("required"),
+            FieldDescriptorLabel::Repeated => serializer.serialize_str("repeated"),
+            FieldDescriptorLabel::Unknown(unknown) => serializer.serialize_str(unknown),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Deserialize)]
 pub enum FieldDescriptorType<'a> {
+    #[serde(rename(serialize = "string"))]
     String,
+    #[serde(rename(serialize = "message"))]
     Message(&'a str),
+}
+
+impl<'a> Serialize for FieldDescriptorType<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            FieldDescriptorType::String => serializer.serialize_str("string"),
+            FieldDescriptorType::Message(message) => serializer.serialize_str(message),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
