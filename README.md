@@ -1,23 +1,29 @@
 # tinyproto
 
+**What is this?**
+
 `tinyproto` is a `.proto` file parser written in Rust. It can do two things:
 
 * Convert `.proto` files to a JSON tree
-* Pass this JSON tree into a handlebars template
+* Use `.proto` files as input to a handlebars template
 
-This makes it *very* easy to generate custom code from protobuf files!
-I use this to generate backend and frontend API stubs (to keep the types in sync),
-but this could also be used to generate HTML for documentation of your API.
+**Why is this helpful?**
 
-Note, this parser only parses a subset of the proto spec. You can find the [EBNF grammer for proto3 here.](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec#reserved) If you want to change this, contributions are welcome!
+It makes it possible to build your own "code generator" by writing a handlebars
+template file. Before this, you'd need to write a plugin for `protoc` itself, which
+I found difficult and time-consuming.
 
-### Why does this exist?
+Note, this parser only parses a subset of the proto spec. You can find the [EBNF grammer for proto3 here.](https://developers.google.com/protocol-buffers/docs/reference/proto3-spec#reserved) I find this subset to be sufficient. If you run into any big issues though, create an issue or feature request! Happy to address them.
 
-I find `protoc` pretty non-trivial to install, use and extend. Especially if you don't
-want to use the default generators, or if one doesn't exist for your language. Also, sometimes
-I want to use `.proto` files without the wire format.
+Some ideas of how this might be used:
 
-This allows me to generate some code in the ~10mins it takes to write a handlebars template file.
+* Define your API in proto and generate strongly-typed backend and frontend stubs
+* Generate HTML documentation of your API
+* Use proto as a strongly-typed schema for JSON objects, and generate methods for this
+
+### How is it implemented?
+
+The tool is written entirely in Rust. It features a zero-allocation recursive descent parser written with `nom`.
 
 ### Usage
 
