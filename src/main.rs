@@ -1,9 +1,10 @@
 use handlebars::Handlebars;
 use clap::Parser;
+use handlebars::handlebars_helper;
 
 mod proto;
-use proto::descriptor::*;
-use proto::parser::*;
+use proto::descriptor::FileDescriptor;
+use proto::parser::parse;
 
 #[derive(clap::Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -35,6 +36,8 @@ fn render_proto_to_json(file_descriptor: &FileDescriptor) -> Result<(), anyhow::
 fn render_proto_to_template(file_descriptor: &FileDescriptor, template: &str) -> Result<(), anyhow::Error> {
     let template_src = std::fs::read_to_string(template)?;
     let mut handlebars = Handlebars::new();
+    handlebars.register_helper("snake_case", Box::new(snake_case));
+    handlebars.register_helper("title_case", Box::new(title_case));
     handlebars.register_template_string("template", template_src)?;
 
     let output = handlebars.render("template", &file_descriptor)?;
@@ -43,46 +46,21 @@ fn render_proto_to_template(file_descriptor: &FileDescriptor, template: &str) ->
     Ok(())
 }
 
-fn parse<'a>(file_name: &'a str, input: &'a str) -> Result<FileDescriptor<'a>, anyhow::Error> {
-    let mut file_syntax: Option<SyntaxDescriptor> = None;
-    let mut messages: Vec<MessageDescriptor> = vec![];
-    let mut services: Vec<ServiceDescriptor> = vec![];
-
-    let mut remaining = input;
-    while !remaining.is_empty() {
-        // If we encounter a syntax version declaration
-        if let Ok(result) = syntax(remaining) {
-            let (rest, syntax) = result;
-            file_syntax = Some(syntax);
-            remaining = rest;
-            continue;
+handlebars::handlebars_helper!(snake_case: |v: String| {
+    let mut result: Vec<char> = vec![];
+    for ch in v.chars() {
+        if ch.is_uppercase() {
+            result.push('_');
+            result.push(ch.to_ascii_lowercase());
+        } else {
+            result.push(ch);
         }
-
-        // If we encounter a message declaration
-        if let Ok(result) = message(remaining) {
-            let (rest, message) = result;
-            messages.push(message);
-            remaining = rest;
-            continue;
-        }
-
-        // If we encounter a service declaration
-        if let Ok(result) = service(remaining) {
-            let (rest, service) = result;
-            services.push(service);
-            remaining = rest;
-            continue;
-        }
-
-        println!("No match!");
-        return Err(anyhow::anyhow!("Unexpected characters {}", remaining));
     }
+    result.into_iter().collect::<String>()
+});
 
-    let descriptor = FileDescriptor{
-        name: file_name,
-        syntax: file_syntax,
-        messages: messages,
-        services: services,
-    };
-    Ok(descriptor)
-}
+handlebars::handlebars_helper!(title_case: |v: String| {
+    let mut v: Vec<char> = v.chars().collect();
+    v[0] = v[0].to_uppercase().nth(0).unwrap();
+    v.into_iter().collect::<String>()
+});
