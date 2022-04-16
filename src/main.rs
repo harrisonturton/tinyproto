@@ -9,9 +9,9 @@ use proto::parser::parse;
 #[derive(clap::Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(short, long)]
+    #[clap(short, long, name = "PROTO FILE", help = "Path to proto file")]
     proto: String,
-    #[clap(short, long)]
+    #[clap(short, long, name = "TEMPLATE FILE", help = "Path to handlebars template file")]
     template: Option<String>
 }
 
