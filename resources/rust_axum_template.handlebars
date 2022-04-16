@@ -1,0 +1,124 @@
+use crate::service::common::http::ServiceError;
+use axum::{
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Extension,
+    },
+    http::StatusCode,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+use futures_util::sink::SinkExt;
+use futures_util::stream::StreamExt;
+use futures_util::Stream;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use tokio::sync::mpsc;
+use tokio::sync::RwLock;
+
+use super::model::*;
+use super::service::TerminalServiceServer;
+use crate::service::common::http::Response;
+use async_trait::async_trait;
+
+use crate::service::common::websocket;
+{{#each messages}}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct {{name}} {
+    {{#each fields}}
+    {{#if (eq label "required")}}
+    pub {{snake_case name}}: {{title_case type}},
+    {{else}}
+    pub {{snake_case name}}: Option<{{title_case type}}>,
+    {{/if}}
+    {{/each}}
+}
+{{/each}}
+
+{{#each services}}
+#[async_trait]
+pub trait {{name}}: Sync + Send {
+    {{#each methods}}
+    {{#if (and (not client_streaming) (not server_streaming))}}
+    async fn {{snake_case name}}(&mut self, req: {{input_type}}) -> Result<{{output_type}}, ServiceError>;
+    {{/if}}
+    {{#if (and client_streaming server_streaming)}}
+    async fn {{snake_case name}}(&mut self, ch: (std::sync::mpsc::Sender<{{output_type}}>, std::sync::mpsc::Receiver<{{input_type}}>)) -> Result<(), ServiceError>;
+    {{/if}}
+    {{#if (and client_streaming (not server_streaming))}}
+    async fn {{snake_case name}}(&mut self, receiver: std::sync::mpsc::Receiver<{{input_type}}>) -> Result<{{output_type}}, ServiceError>;
+    {{/if}}
+    {{#if (and (not client_streaming) server_streaming)}}
+    async fn {{snake_case name}}(&mut self, sender: std::sync::mpsc::Sender<{{output_type}}>) -> Result<(), ServiceError>;
+    {{/if}}
+    {{/each}}
+}
+
+type Service = Arc<RwLock<Box<dyn {{name}}>>>;
+
+pub fn routes(server: Service) -> Router {
+    Router::new()
+        {{#each methods}}
+        .route("/{{snake_case name}}", get({{snake_case name}}))
+        {{/each}}
+        .layer(Extension(server))
+}
+{{#each methods}}
+
+{{!-- {{ Big logic expression because chain if-else blocks aren't supported }} --}}
+{{#if (and (not client_streaming) (not server_streaming))}}
+async fn {{snake_case name}}(
+    Json(req): Json<{{input_type}}>,
+    Extension(server): Extension<Service>,
+) -> Result<Json<{{output_type}}>, ServiceError> {
+    let mut server = server.write().await;
+    let res = server.{{snake_case name}}(req).await?;
+    Ok(Json(res))
+}
+{{/if}}
+{{#if (and client_streaming server_streaming)}}
+async fn {{snake_case name}}(
+    ws: WebSocketUpgrade,
+    Extension(server): Extension<Service>,
+) -> impl IntoResponse {
+    let mut handler = |ch| async move {
+        let mut server = server.write().await;
+        // Allow streaming from client and server
+        server.{{snake_case name}}(ch).await;
+    };
+    websocket::stream!(ws, {{input_type}}, {{output_type}}, mut handler)
+}
+{{/if}}
+{{#if (and client_streaming (not server_streaming))}}
+async fn {{snake_case name}}(
+    ws: WebSocketUpgrade,
+    Extension(server): Extension<Service>,
+) -> impl IntoResponse {
+    let mut handler = |ch| async move {
+        let mut server = server.write().await;
+        let (sender, _) = ch;
+        // Allow streaming from client
+        server.{{snake_case name}}(sender).await?;
+    };
+    websocket::stream!(ws, {{input_type}}, {{output_type}}, mut handler)
+}
+{{/if}}
+{{#if (and (not client_streaming) server_streaming)}}
+async fn {{snake_case name}}(
+    ws: WebSocketUpgrade,
+    Extension(server): Extension<Service>,
+) -> impl IntoResponse {
+    let mut handler = |ch| async move {
+        let mut server = server.write().await;
+
+        // Only allow streaming from server
+        let (sender, _) = ch;
+        server.{{snake_case name}}(sender).await?;
+    };
+    websocket::stream!(ws, {{input_type}}, {{output_type}}, mut handler)
+}
+{{/if}}
+{{/each}}
+{{/each}}
